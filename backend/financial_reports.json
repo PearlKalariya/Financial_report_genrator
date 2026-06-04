@@ -1,0 +1,96 @@
+[
+  {
+    "report_id": "01fab6cc-7db1-484b-ae3c-d7e25a2e4530",
+    "session_id": "api-wire-smoke",
+    "query": "What is the outlook for TCS in Q3 2026?",
+    "ticker": "TCS.NS",
+    "company": "Tata Consultancy Services",
+    "report": "# Tata Consultancy Services (TCS.NS) Market Insight Report\n\n## Executive Summary\nTata Consultancy Services is being analyzed for a **outlook** query over the **Q3** timeframe. The current demo workflow combines source discovery, market metrics, lightweight sentiment scoring, and session memory into one structured report.\n\n## Price Action\n- Current price: 2448.1001\n- Change: 6.5341%\n- Volume: 693123\n- 52-week range: N/A\n\n## Key Market Metrics\n- Market cap: N/A\n- PE ratio: N/A\n\n## News Analysis\nThe research agent found 6 source(s) for this query. These sources should be used to validate the latest price context, company announcements, earnings material, and broader market narrative.\n\n- [1] Tata Consultancy Services Limited (TCS.NS) Analyst Ratings ... (Tavily)\n- [2] Tata Consultancy Services Limited (TCS.NS) Latest Stock News & Headlines - Yahoo Finance (Tavily)\n- [3] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [4] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [5] Tata Consultancy Services Ltd (NSE:TCS) Q2 2026 Earnings Report ... (Tavily)\n- [6] Tata Consultancy Services Limited (TCS.NS) interactive stock chart (Tavily)\n\n## Sentiment\n- Label: neutral\n- Score: 0.0\n- Confidence: 0.62\n- Main drivers: recent source tone, market data context, headline language\n\n## Memory Context\nNo prior session context was found for this ticker.\n\n## Key Risks\n- Market data in this MVP uses deterministic fallback values unless real API providers are connected.\n- Search results should be upgraded to Tavily or Serper for production-grade source retrieval.\n- Financial conclusions must remain citation-backed and should not rely on LLM-generated numbers.\n\n## Outlook\nThe near-term outlook should be treated as a structured research starting point rather than a final recommendation. A stronger production version should add live news ranking, filings retrieval, real market data, and deeper sector comparison before producing high-confidence conclusions.\n\n## Sources\n- [1] Tata Consultancy Services Limited (TCS.NS) Analyst Ratings ... (Tavily)\n- [2] Tata Consultancy Services Limited (TCS.NS) Latest Stock News & Headlines - Yahoo Finance (Tavily)\n- [3] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [4] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [5] Tata Consultancy Services Ltd (NSE:TCS) Q2 2026 Earnings Report ... (Tavily)\n- [6] Tata Consultancy Services Limited (TCS.NS) interactive stock chart (Tavily)\n\n## Disclaimer\nThis report is for informational and educational purposes only. It is not financial advice, investment advice, or a recommendation to buy, sell, or hold any security.\n",
+    "citations": [
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Analyst Ratings ...",
+        "url": "https://finance.yahoo.com/quote/TCS.NS/analysis",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Latest Stock News & Headlines - Yahoo Finance",
+        "url": "https://finance.yahoo.com/quote/TCS.NS/news",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance",
+        "url": "https://finance.yahoo.com/quote/TCS.NS",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance",
+        "url": "https://ca.finance.yahoo.com/quote/TCS.NS/latest-news",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Ltd (NSE:TCS) Q2 2026 Earnings Report ...",
+        "url": "https://finance.yahoo.com/news/tata-consultancy-services-ltd-nse-131516961.html",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) interactive stock chart",
+        "url": "https://sg.finance.yahoo.com/quote/TCS.NS/chart",
+        "source": "Tavily",
+        "published_at": "Latest"
+      }
+    ],
+    "created_at": "2026-06-03T18:15:21.127285+00:00"
+  },
+  {
+    "report_id": "c31a960f-de71-49e1-8fda-a2f47292ade2",
+    "session_id": "api-wire-final",
+    "query": "What is the outlook for TCS in Q3 2026?",
+    "ticker": "TCS.NS",
+    "company": "Tata Consultancy Services",
+    "report": "# Tata Consultancy Services (TCS.NS) Market Insight Report\n\n## Executive Summary\nTata Consultancy Services is being analyzed for a **outlook** query over the **Q3** timeframe. The current demo workflow combines source discovery, market metrics, lightweight sentiment scoring, and session memory into one structured report.\n\n## Price Action\n- Current price: 2448.1001\n- Change: 6.5341%\n- Volume: 693123\n- 52-week range: N/A\n\n## Key Market Metrics\n- Market cap: N/A\n- PE ratio: N/A\n\n## News Analysis\nThe research agent found 6 source(s) for this query. These sources should be used to validate the latest price context, company announcements, earnings material, and broader market narrative.\n\n- [1] Tata Consultancy Services Limited (TCS.NS) Analyst Ratings ... (Tavily)\n- [2] Tata Consultancy Services Limited (TCS.NS) Latest Stock News & Headlines - Yahoo Finance (Tavily)\n- [3] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [4] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [5] Tata Consultancy Services Ltd (NSE:TCS) Q2 2026 Earnings Report ... (Tavily)\n- [6] Tata Consultancy Services Limited (TCS.NS) interactive stock chart (Tavily)\n\n## Sentiment\n- Label: neutral\n- Score: 0.0\n- Confidence: 0.62\n- Main drivers: recent source tone, market data context, headline language\n\n## Memory Context\nNo prior session context was found for this ticker.\n\n## Key Risks\n- Market data in this MVP uses deterministic fallback values unless real API providers are connected.\n- Search results should be upgraded to Tavily or Serper for production-grade source retrieval.\n- Financial conclusions must remain citation-backed and should not rely on LLM-generated numbers.\n\n## Outlook\nThe near-term outlook should be treated as a structured research starting point rather than a final recommendation. A stronger production version should add live news ranking, filings retrieval, real market data, and deeper sector comparison before producing high-confidence conclusions.\n\n## Sources\n- [1] Tata Consultancy Services Limited (TCS.NS) Analyst Ratings ... (Tavily)\n- [2] Tata Consultancy Services Limited (TCS.NS) Latest Stock News & Headlines - Yahoo Finance (Tavily)\n- [3] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [4] Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance (Tavily)\n- [5] Tata Consultancy Services Ltd (NSE:TCS) Q2 2026 Earnings Report ... (Tavily)\n- [6] Tata Consultancy Services Limited (TCS.NS) interactive stock chart (Tavily)\n\n## Disclaimer\nThis report is for informational and educational purposes only. It is not financial advice, investment advice, or a recommendation to buy, sell, or hold any security.\n",
+    "citations": [
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Analyst Ratings ...",
+        "url": "https://finance.yahoo.com/quote/TCS.NS/analysis",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Latest Stock News & Headlines - Yahoo Finance",
+        "url": "https://finance.yahoo.com/quote/TCS.NS/news",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance",
+        "url": "https://finance.yahoo.com/quote/TCS.NS",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) Stock Price, News, Quote & History - Yahoo Finance",
+        "url": "https://ca.finance.yahoo.com/quote/TCS.NS/latest-news",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Ltd (NSE:TCS) Q2 2026 Earnings Report ...",
+        "url": "https://finance.yahoo.com/news/tata-consultancy-services-ltd-nse-131516961.html",
+        "source": "Tavily",
+        "published_at": "Latest"
+      },
+      {
+        "title": "Tata Consultancy Services Limited (TCS.NS) interactive stock chart",
+        "url": "https://sg.finance.yahoo.com/quote/TCS.NS/chart",
+        "source": "Tavily",
+        "published_at": "Latest"
+      }
+    ],
+    "created_at": "2026-06-03T18:18:29.101900+00:00"
+  }
+]
