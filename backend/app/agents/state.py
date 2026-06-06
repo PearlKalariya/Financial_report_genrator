@@ -11,6 +11,7 @@ class AgentState(TypedDict, total=False):
     region: str
     entities: list[dict[str, Any]]
     comparison_data: list[dict[str, Any]]
+    financial_evidence: dict[str, Any]
     needs_clarification: bool
     clarification_question: str
     clarification_options: list[str]

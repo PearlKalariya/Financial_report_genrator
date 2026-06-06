@@ -108,6 +108,7 @@ async def _run_financial_statement_report_agent(state: AgentState) -> AgentState
     timeframe = state.get("timeframe", "near term")
     market = state.get("market_data", {})
     articles = state.get("articles", [])
+    evidence = state.get("financial_evidence", {})
 
     citations = [
         {
@@ -122,25 +123,21 @@ async def _run_financial_statement_report_agent(state: AgentState) -> AgentState
         f"- [{index + 1}] {article['title']} ({article.get('source', 'Source')})"
         for index, article in enumerate(articles)
     )
-    evidence_lines = "\n".join(
-        f"- {article.get('snippet', '')} [{index + 1}]"
-        for index, article in enumerate(articles)
-        if article.get("snippet")
-    )
+    fact_rows = _financial_fact_rows(evidence)
+    evidence_lines = _financial_evidence_lines(evidence)
+    observation_lines = _source_observation_lines(evidence)
+    confidence = evidence.get("confidence", {})
+    freshness = evidence.get("freshness", {})
 
     fallback_report = f"""# {company} ({ticker}) Profit and Loss Analysis Report
 
 ## Executive Summary
-This report focuses on profit and loss performance for {company} over the **{timeframe}** timeframe. It uses retrieved earnings/result sources and market context. If a specific P&L metric is not present in the retrieved sources, it is marked as unavailable rather than estimated.
+This report focuses on profit and loss performance for {company} over the **{timeframe}** timeframe. Only explicitly extracted financial facts are shown as verified. Missing metrics are marked unavailable rather than estimated.
 
 ## Profit and Loss Snapshot
-| Metric | Latest Available Data |
-|---|---:|
-| Revenue | Source required |
-| EBITDA | Source required |
-| Net Profit / PAT | Source required |
-| Operating Margin | Source required |
-| EPS | Source required |
+| Metric | Value | Period | Evidence |
+|---|---:|---|---|
+{fact_rows}
 
 ## Revenue Analysis
 Review reported revenue, sales volume, segment growth, and management commentary from the cited results sources.
@@ -159,7 +156,20 @@ Review EBITDA, PAT/net profit, margin movement, and EPS trends. Do not infer pro
 - Resolved symbol: {market.get("symbol", ticker)}
 
 ## Recent Earnings and Source Evidence
-{evidence_lines or "No source snippets with P&L details were retrieved."}
+{evidence_lines}
+
+## Source-Reported Figures
+The following figures are reproduced from retrieved source text. They are not reclassified, calculated, or treated as verified P&L metrics unless also listed in the snapshot above.
+
+{observation_lines}
+
+## Data Quality
+- Confidence: {confidence.get("level", "low")} ({confidence.get("score", 0)})
+- Verified metrics: {confidence.get("verified_metrics", 0)} of {confidence.get("required_metrics", 0)}
+- Official sources: {confidence.get("official_sources", 0)}
+- Latest source date: {freshness.get("latest_source_date", "Unavailable")}
+- Market data as of: {freshness.get("market_data_as_of", "Unavailable")}
+- Freshness warning: {freshness.get("warning") or "None"}
 
 ## Key Risks
 - Revenue volatility and demand cyclicality
@@ -286,3 +296,64 @@ def _comparison_company_section(index: int, company_data: dict) -> str:
 Recent sources:
 {source_lines}
 """
+
+
+def _financial_fact_rows(evidence: dict) -> str:
+    facts = evidence.get("facts", [])
+    metric_labels = {
+        "revenue": "Revenue",
+        "ebitda": "EBITDA",
+        "net_profit": "Net Profit / PAT",
+        "expenses": "Expenses",
+        "eps": "EPS",
+        "operating_margin": "Operating Margin",
+        "ebitda_margin": "EBITDA Margin",
+    }
+    facts_by_metric = {}
+    for fact in facts:
+        facts_by_metric.setdefault(fact["metric"], fact)
+
+    rows = []
+    for metric, label in metric_labels.items():
+        fact = facts_by_metric.get(metric)
+        if not fact:
+            rows.append(f"| {label} | Unavailable | - | - |")
+            continue
+        value = _format_fact_value(fact)
+        rows.append(
+            f"| {label} | {value} | {fact.get('period', 'Unspecified')} | "
+            f"[{fact.get('fact_id')}/{fact.get('source_id')}] |"
+        )
+    return "\n".join(rows)
+
+
+def _financial_evidence_lines(evidence: dict) -> str:
+    facts = evidence.get("facts", [])
+    if not facts:
+        return "No explicit P&L metrics were found in the retrieved source snippets."
+
+    return "\n".join(
+        f"- [{fact.get('fact_id')}/{fact.get('source_id')}] "
+        f"{fact.get('metric').replace('_', ' ').title()}: {_format_fact_value(fact)} "
+        f"for {fact.get('period', 'Unspecified')} "
+        f"(confidence: {fact.get('confidence', 'low')})"
+        for fact in facts
+    )
+
+
+def _source_observation_lines(evidence: dict) -> str:
+    observations = evidence.get("source_observations", [])
+    if not observations:
+        return "No additional source-reported numeric statements were found."
+
+    return "\n".join(
+        f"- [{observation.get('observation_id')}/{observation.get('source_id')}] "
+        f"{observation.get('text')}"
+        for observation in observations
+    )
+
+
+def _format_fact_value(fact: dict) -> str:
+    currency = f"{fact.get('currency')} " if fact.get("currency") else ""
+    unit = f" {fact.get('unit')}" if fact.get("unit") else ""
+    return f"{currency}{fact.get('value', 'Unavailable')}{unit}"

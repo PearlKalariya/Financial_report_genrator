@@ -1,4 +1,5 @@
 from app.agents.state import AgentState
+from app.services.evidence_service import financial_evidence_service
 from app.services.search_service import search_service
 
 
@@ -10,6 +11,10 @@ async def run_research_agent(state: AgentState) -> AgentState:
                 company=entity["company"],
                 ticker=entity["ticker"],
                 query=f"{state['query']} {entity['company']} {entity['ticker']}",
+            )
+            articles = financial_evidence_service.rank_sources(
+                articles,
+                company=entity["company"],
             )
             comparison_data.append({**entity, "articles": articles})
 
@@ -27,6 +32,7 @@ async def run_research_agent(state: AgentState) -> AgentState:
         ticker=ticker,
         query=_research_query_for_intent(state),
     )
+    articles = financial_evidence_service.rank_sources(articles, company=company)
 
     return {**state, "articles": articles}
 
