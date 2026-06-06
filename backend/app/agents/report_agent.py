@@ -12,6 +12,9 @@ async def run_report_agent(state: AgentState) -> AgentState:
     if state.get("intent") == "comparison" and len(state.get("comparison_data", [])) > 1:
         return await _run_comparison_report_agent(state)
 
+    if state.get("intent") == "financial_statement_analysis":
+        return await _run_financial_statement_report_agent(state)
+
     company = state.get("company", "Unknown company")
     ticker = state.get("ticker", "UNKNOWN")
     timeframe = state.get("timeframe", "near term")
@@ -79,6 +82,93 @@ The research agent found {len(articles)} source(s) for this query. These sources
 
 ## Outlook
 The near-term outlook should be treated as a structured research starting point rather than a final recommendation. A stronger production version should add live news ranking, filings retrieval, real market data, and deeper sector comparison before producing high-confidence conclusions.
+
+## Sources
+{source_lines}
+
+## Disclaimer
+{DISCLAIMER}
+"""
+
+    result = await gemini_report_service.generate_report(fallback_report=fallback_report, state=dict(state))
+
+    return {
+        **state,
+        "report": result.report,
+        "citations": citations,
+        "report_model": result.model,
+        "report_used_fallback": result.used_fallback,
+        "report_error": result.error,
+    }
+
+
+async def _run_financial_statement_report_agent(state: AgentState) -> AgentState:
+    company = state.get("company", "Unknown company")
+    ticker = state.get("ticker", "UNKNOWN")
+    timeframe = state.get("timeframe", "near term")
+    market = state.get("market_data", {})
+    articles = state.get("articles", [])
+
+    citations = [
+        {
+            "title": article["title"],
+            "url": article["url"],
+            "source": article.get("source"),
+            "published_at": article.get("published_at"),
+        }
+        for article in articles
+    ]
+    source_lines = "\n".join(
+        f"- [{index + 1}] {article['title']} ({article.get('source', 'Source')})"
+        for index, article in enumerate(articles)
+    )
+    evidence_lines = "\n".join(
+        f"- {article.get('snippet', '')} [{index + 1}]"
+        for index, article in enumerate(articles)
+        if article.get("snippet")
+    )
+
+    fallback_report = f"""# {company} ({ticker}) Profit and Loss Analysis Report
+
+## Executive Summary
+This report focuses on profit and loss performance for {company} over the **{timeframe}** timeframe. It uses retrieved earnings/result sources and market context. If a specific P&L metric is not present in the retrieved sources, it is marked as unavailable rather than estimated.
+
+## Profit and Loss Snapshot
+| Metric | Latest Available Data |
+|---|---:|
+| Revenue | Source required |
+| EBITDA | Source required |
+| Net Profit / PAT | Source required |
+| Operating Margin | Source required |
+| EPS | Source required |
+
+## Revenue Analysis
+Review reported revenue, sales volume, segment growth, and management commentary from the cited results sources.
+
+## Expense Analysis
+Review operating expenses, fuel/input costs, finance costs, depreciation, and other cost drivers only when they appear in cited sources.
+
+## Profitability Analysis
+Review EBITDA, PAT/net profit, margin movement, and EPS trends. Do not infer profitability numbers from price action.
+
+## Market Context
+- Current price: {market.get("price", "N/A")}
+- Change: {market.get("change", "N/A")}
+- Data source: {market.get("source", "N/A")}
+- Exchange: {market.get("exchange", "N/A")}
+- Resolved symbol: {market.get("symbol", ticker)}
+
+## Recent Earnings and Source Evidence
+{evidence_lines or "No source snippets with P&L details were retrieved."}
+
+## Key Risks
+- Revenue volatility and demand cyclicality
+- Margin pressure from input costs, finance costs, or regulatory changes
+- Execution risk in expansion or capex plans
+- Missing or stale financial-statement data if official filings are not retrieved
+
+## Outlook
+The P&L outlook should be based on cited revenue, expense, and profitability evidence. If exact current-period P&L figures are unavailable, consult the latest quarterly results, annual report, or exchange filing before drawing conclusions.
 
 ## Sources
 {source_lines}

@@ -16,7 +16,7 @@ class SearchService:
         self.max_results = max_results or settings.max_articles
 
     async def search(self, *, company: str, ticker: str, query: str) -> list[dict]:
-        search_query = f"{company} {ticker} financial news outlook earnings"
+        search_query = self._build_search_query(company=company, ticker=ticker, query=query)
 
         if self.tavily_api_key:
             articles = await self._search_tavily(search_query)
@@ -112,6 +112,27 @@ class SearchService:
             },
         ][: self.max_results]
 
+    def _build_search_query(self, *, company: str, ticker: str, query: str) -> str:
+        base_query = f"{company} {ticker} {query}".strip()
+        if any(
+            phrase in query.lower()
+            for phrase in [
+                "profit",
+                "loss",
+                "p&l",
+                "pnl",
+                "financial statement",
+                "quarterly results",
+                "earnings",
+                "annual report",
+            ]
+        ):
+            return (
+                f"{base_query} revenue EBITDA PAT net profit expenses margins EPS "
+                "quarterly results investor presentation annual report"
+            )
+
+        return f"{base_query} financial news outlook earnings"
+
 
 search_service = SearchService()
-

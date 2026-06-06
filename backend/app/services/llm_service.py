@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 
 from app.core.config import settings
@@ -50,25 +52,32 @@ class GeminiReportService:
 
     async def _generate_with_model(self, *, model: str, prompt: str) -> tuple[str, str | None]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        last_error = None
 
-        try:
-            async with httpx.AsyncClient(timeout=25) as client:
-                response = await client.post(
-                    url,
-                    headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
-                    json={
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1800},
-                    },
-                )
-                response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            return "", self._summarize_http_error(exc)
-        except httpx.HTTPError as exc:
-            return "", f"Gemini request failed: {exc.__class__.__name__}"
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=45) as client:
+                    response = await client.post(
+                        url,
+                        headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
+                        json={
+                            "contents": [{"parts": [{"text": prompt}]}],
+                            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1800},
+                        },
+                    )
+                    response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                last_error = self._summarize_http_error(exc)
+                if exc.response.status_code in {429, 503} and attempt < 2:
+                    await asyncio.sleep(1 + attempt)
+                    continue
+                return "", last_error
+            except httpx.HTTPError as exc:
+                return "", f"Gemini request failed: {exc.__class__.__name__}"
+            break
 
         text = self._extract_text(response.json())
-        return text, None if text else "Gemini returned no text."
+        return text, None if text else (last_error or "Gemini returned no text.")
 
     def _build_prompt(self, state: dict) -> str:
         return f"""
@@ -78,7 +87,10 @@ Rules:
 - Do not invent financial numbers.
 - Use only the supplied market_data for metrics.
 - Use the supplied articles as citation sources.
-- Include sections: Executive Summary, Price Action, Key Market Metrics, News Analysis, Sentiment, Key Risks, Outlook, Sources, Disclaimer.
+- If intent is financial_statement_analysis, focus on profit and loss, revenue, expenses, margins, earnings, and financial performance. Include sections: Executive Summary, Profit and Loss Snapshot, Revenue Analysis, Expense Analysis, Profitability Analysis, Recent Earnings/News Context, Key Risks, Outlook, Sources, Disclaimer.
+- For financial_statement_analysis, do not call the report a balance sheet analysis unless the original query explicitly asks for balance sheet. Do not say the query requested a different analysis type than the Query field.
+- For financial_statement_analysis, if exact revenue, EBITDA, PAT/net profit, expenses, margins, or EPS are not present in the supplied articles, say the metric is unavailable in retrieved sources. Do not infer P&L numbers from stock price, sentiment, or general news.
+- Otherwise include sections: Executive Summary, Price Action, Key Market Metrics, News Analysis, Sentiment, Key Risks, Outlook, Sources, Disclaimer.
 - Include this disclaimer exactly: This report is for informational and educational purposes only. It is not financial advice, investment advice, or a recommendation to buy, sell, or hold any security.
 
 Query: {state.get("query")}
@@ -102,7 +114,7 @@ Memory context: {state.get("memory_context")}
         return "\n".join(part.get("text", "") for part in parts).strip()
 
     def _candidate_models(self) -> list[str]:
-        candidates = [self.model, "gemini-2.5-flash", "gemini-2.0-flash"]
+        candidates = [self.model, "gemini-2.5-flash"]
         deduped: list[str] = []
         for model in candidates:
             if model and model not in deduped:

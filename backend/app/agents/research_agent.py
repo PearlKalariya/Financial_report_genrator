@@ -22,6 +22,24 @@ async def run_research_agent(state: AgentState) -> AgentState:
 
     company = state.get("company", "the company")
     ticker = state.get("ticker", "UNKNOWN")
-    articles = await search_service.search(company=company, ticker=ticker, query=state["query"])
+    articles = await search_service.search(
+        company=company,
+        ticker=ticker,
+        query=_research_query_for_intent(state),
+    )
 
     return {**state, "articles": articles}
+
+
+def _research_query_for_intent(state: AgentState) -> str:
+    company = state.get("company", "")
+    ticker = state.get("ticker", "")
+    query = state["query"]
+
+    if state.get("intent") == "financial_statement_analysis":
+        return (
+            f"{query} {company} {ticker} quarterly results annual report "
+            "profit loss revenue EBITDA PAT net profit expenses margin EPS"
+        )
+
+    return query

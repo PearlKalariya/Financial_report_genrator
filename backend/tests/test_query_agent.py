@@ -83,3 +83,22 @@ def test_query_agent_extracts_meta_google_amazon_comparison() -> None:
         {"ticker": "GOOGL", "company": "Alphabet", "region": "United States"},
         {"ticker": "AMZN", "company": "Amazon", "region": "United States"},
     ]
+
+
+def test_query_agent_asks_clarification_for_ambiguous_adani_group() -> None:
+    state = run_query_agent({"query": "generate me financial report on profit and loss of adani"})
+
+    assert state["needs_clarification"] is True
+    assert state["ticker"] == "UNKNOWN"
+    assert state["intent"] == "financial_statement_analysis"
+    assert "Adani Enterprises" in state["clarification_options"]
+    assert "Adani Ports and Special Economic Zone" in state["clarification_options"]
+
+
+def test_query_agent_does_not_clarify_when_adani_ports_is_explicit() -> None:
+    state = run_query_agent({"query": "generate profit and loss report for Adani Ports"})
+
+    assert state["needs_clarification"] is False
+    assert state["intent"] == "financial_statement_analysis"
+    assert state["ticker"] == "ADANIPORTS.NS"
+    assert state["company"] == "Adani Ports and Special Economic Zone"

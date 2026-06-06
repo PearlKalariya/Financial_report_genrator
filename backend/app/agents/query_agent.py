@@ -29,7 +29,15 @@ KNOWN_TICKERS = {
     "microsoft": ("MSFT", "Microsoft", "United States"),
     "tesla": ("TSLA", "Tesla", "United States"),
     "nvidia": ("NVDA", "NVIDIA", "United States"),
+    "adani enterprises": ("ADANIENT.NS", "Adani Enterprises", "India"),
     "adani ports": ("ADANIPORTS.NS", "Adani Ports and Special Economic Zone", "India"),
+    "adani port": ("ADANIPORTS.NS", "Adani Ports and Special Economic Zone", "India"),
+    "adani green": ("ADANIGREEN.NS", "Adani Green Energy", "India"),
+    "adani green energy": ("ADANIGREEN.NS", "Adani Green Energy", "India"),
+    "adani power": ("ADANIPOWER.NS", "Adani Power", "India"),
+    "adani energy": ("ADANIENSOL.NS", "Adani Energy Solutions", "India"),
+    "adani energy solutions": ("ADANIENSOL.NS", "Adani Energy Solutions", "India"),
+    "adani total gas": ("ATGL.NS", "Adani Total Gas", "India"),
     "tata motors": ("TATAMOTORS.NS", "Tata Motors", "India"),
     "tata power": ("TATAPOWER.NS", "Tata Power", "India"),
     "tata steel": ("TATASTEEL.NS", "Tata Steel", "India"),
@@ -41,6 +49,14 @@ AMBIGUOUS_ALIASES = {
         "Tata Motors",
         "Tata Power",
         "Tata Steel",
+    ],
+    "adani": [
+        "Adani Enterprises",
+        "Adani Ports and Special Economic Zone",
+        "Adani Green Energy",
+        "Adani Power",
+        "Adani Energy Solutions",
+        "Adani Total Gas",
     ],
 }
 
@@ -67,6 +83,12 @@ STOP_WORDS = {
     "analyze",
     "analze",
     "compare",
+    "financial",
+    "generate",
+    "loss",
+    "p",
+    "profit",
+    "report",
 }
 
 
@@ -183,7 +205,10 @@ def _fuzzy_match_entity(query: str) -> tuple[str, tuple[str, str, str]] | None:
         if token not in STOP_WORDS and len(token) >= 4 and not token.isdigit()
     ]
     aliases = list(KNOWN_TICKERS.keys())
+    ambiguous_tokens = set(AMBIGUOUS_ALIASES.keys())
     for token in tokens:
+        if token in ambiguous_tokens:
+            continue
         close = get_close_matches(token, aliases, n=1, cutoff=0.78)
         if close:
             alias = close[0]
@@ -198,6 +223,16 @@ def _overlaps(left: tuple[int, int], right: tuple[int, int]) -> bool:
 def _detect_intent(query: str) -> str:
     if "compare" in query:
         return "comparison"
+    if (
+        "profit and loss" in query
+        or "p&l" in query
+        or "pnl" in query
+        or "financial report" in query
+        or "financial statement" in query
+        or "earnings" in query
+        or "quarterly results" in query
+    ):
+        return "financial_statement_analysis"
     if "sentiment" in query or "mood" in query:
         return "sentiment_analysis"
     if "risk" in query or "risks" in query:
