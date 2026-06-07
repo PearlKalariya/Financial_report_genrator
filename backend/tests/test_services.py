@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 from app.memory.store import PersistentReportStore
 from app.services.market_data_service import MarketDataService
 from app.services.search_service import SearchService
+from app.schemas.events import StreamEvent
 
 
 def test_search_service_returns_fallback_sources_without_api_keys() -> None:
@@ -97,3 +98,23 @@ def test_persistent_report_store_writes_history_to_disk(tmp_path: Path) -> None:
 
     assert record.report_id
     assert reloaded.list_by_session("session-1")[0].ticker == "TCS.NS"
+
+
+def test_stream_event_supports_structured_financial_statements() -> None:
+    event = StreamEvent(
+        type="financial_statements",
+        data={
+            "ticker": "AAPL",
+            "statements": {
+                "income_statement": {
+                    "quarterly": [{"period_end": "2025-09-30", "values": {"revenue": 100}}],
+                    "annual": [],
+                }
+            },
+        },
+    )
+
+    payload = event.model_dump(exclude_none=True)
+
+    assert payload["type"] == "financial_statements"
+    assert payload["data"]["ticker"] == "AAPL"

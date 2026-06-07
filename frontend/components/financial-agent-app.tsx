@@ -1,7 +1,12 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { streamQuery, StreamEvent } from "@/lib/api";
+import {
+  FinancialStatementBundle,
+  StatementPeriod,
+  streamQuery,
+  StreamEvent
+} from "@/lib/api";
 
 const PROMPTS = [
   "What is the outlook for TCS in Q3 2026?",
@@ -15,6 +20,15 @@ type Citation = {
   url?: string;
 };
 
+const STATEMENT_LABELS = {
+  income_statement: "Income Statement",
+  balance_sheet: "Balance Sheet",
+  cash_flow: "Cash Flow"
+} as const;
+
+type StatementKey = keyof typeof STATEMENT_LABELS;
+type Cadence = "quarterly" | "annual";
+
 export function FinancialAgentApp() {
   const [query, setQuery] = useState(PROMPTS[0]);
   const [report, setReport] = useState("");
@@ -22,6 +36,9 @@ export function FinancialAgentApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [citations, setCitations] = useState<Citation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [statements, setStatements] = useState<FinancialStatementBundle | null>(null);
+  const [statementKey, setStatementKey] = useState<StatementKey>("income_statement");
+  const [cadence, setCadence] = useState<Cadence>("quarterly");
 
   const metrics = useMemo(
     () => [
@@ -43,6 +60,7 @@ export function FinancialAgentApp() {
     setReport("");
     setCitations([]);
     setError(null);
+    setStatements(null);
     setIsLoading(true);
     setStatus("Starting research workflow");
 
@@ -62,6 +80,10 @@ export function FinancialAgentApp() {
 
         if (streamEvent.type === "citation") {
           setCitations((current) => [...current, streamEvent]);
+        }
+
+        if (streamEvent.type === "financial_statements" && streamEvent.data) {
+          setStatements(streamEvent.data);
         }
 
         if (streamEvent.type === "done") {
@@ -125,6 +147,16 @@ export function FinancialAgentApp() {
               <pre>{report}</pre>
             )}
           </article>
+
+          {statements ? (
+            <FinancialStatementsExplorer
+              bundle={statements}
+              cadence={cadence}
+              onCadenceChange={setCadence}
+              onStatementChange={setStatementKey}
+              statementKey={statementKey}
+            />
+          ) : null}
         </section>
 
         <aside className="side-panel">
@@ -166,6 +198,125 @@ export function FinancialAgentApp() {
       </div>
     </main>
   );
+}
+
+function FinancialStatementsExplorer({
+  bundle,
+  cadence,
+  onCadenceChange,
+  onStatementChange,
+  statementKey
+}: {
+  bundle: FinancialStatementBundle;
+  cadence: Cadence;
+  onCadenceChange: (cadence: Cadence) => void;
+  onStatementChange: (statement: StatementKey) => void;
+  statementKey: StatementKey;
+}) {
+  const periods = bundle.statements[statementKey]?.[cadence] ?? [];
+  const metrics = collectMetrics(periods);
+
+  return (
+    <section className="statements-section">
+      <div className="statements-heading">
+        <div>
+          <h2>Financial Statements</h2>
+          <p>{bundle.ticker} · {bundle.source} · {bundle.currency ?? "Currency unavailable"}</p>
+        </div>
+        <div className="segmented-control" aria-label="Statement cadence">
+          {(["quarterly", "annual"] as Cadence[]).map((option) => (
+            <button
+              aria-pressed={cadence === option}
+              className={cadence === option ? "is-active" : ""}
+              key={option}
+              onClick={() => onCadenceChange(option)}
+              type="button"
+            >
+              {option === "quarterly" ? "Quarterly" : "Annual"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="statement-tabs" role="tablist">
+        {(Object.keys(STATEMENT_LABELS) as StatementKey[]).map((key) => (
+          <button
+            aria-selected={statementKey === key}
+            className={statementKey === key ? "is-active" : ""}
+            key={key}
+            onClick={() => onStatementChange(key)}
+            role="tab"
+            type="button"
+          >
+            {STATEMENT_LABELS[key]}
+          </button>
+        ))}
+      </div>
+
+      {periods.length ? (
+        <div className="statement-table-wrap">
+          <table className="statement-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                {periods.map((period) => <th key={period.period_end}>{period.period_end}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.map((metric) => (
+                <tr key={metric}>
+                  <th>{formatMetricName(metric)}</th>
+                  {periods.map((period) => (
+                    <td key={`${metric}-${period.period_end}`}>
+                      {formatStatementValue(period, metric)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="notice">No {cadence} data was returned for this statement.</div>
+      )}
+    </section>
+  );
+}
+
+function collectMetrics(periods: StatementPeriod[]): string[] {
+  const metrics = new Set<string>();
+  periods.forEach((period) => {
+    Object.keys(period.values).forEach((metric) => metrics.add(metric));
+    Object.keys(period.derived).forEach((metric) => metrics.add(metric));
+  });
+  return Array.from(metrics);
+}
+
+function formatMetricName(metric: string): string {
+  return metric
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatStatementValue(period: StatementPeriod, metric: string): string {
+  const value = period.values[metric] ?? period.derived[metric];
+  if (value === undefined) {
+    return "—";
+  }
+  if (
+    metric.endsWith("margin") ||
+    metric.endsWith("growth") ||
+    metric.endsWith("change")
+  ) {
+    return `${(value * 100).toFixed(2)}%`;
+  }
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 2,
+    style: period.currency ? "currency" : "decimal",
+    currency: period.currency || undefined
+  }).format(value);
 }
 
 function isSafeCitationUrl(value?: string): boolean {

@@ -125,6 +125,59 @@ def test_financial_statement_report_fallback_uses_profit_and_loss_sections(monke
                 }
             ],
         },
+        "financial_statements": {
+            "ticker": "ADANIPOWER.NS",
+            "source": "Yahoo Finance",
+            "currency": "INR",
+            "retrieved_at": "2026-06-07T00:00:00+00:00",
+            "statements": {
+                "income_statement": {
+                    "quarterly": [
+                        {
+                            "period_end": "2026-03-31",
+                            "period_type": "3M",
+                            "currency": "INR",
+                            "values": {
+                                "revenue": 133080000000,
+                                "net_income": 25990000000,
+                            },
+                            "derived": {"net_margin": 0.195295},
+                        }
+                    ],
+                    "annual": [],
+                },
+                "balance_sheet": {
+                    "quarterly": [
+                        {
+                            "period_end": "2026-03-31",
+                            "period_type": "3M",
+                            "currency": "INR",
+                            "values": {
+                                "total_assets": 1000000000000,
+                                "total_debt": 250000000000,
+                            },
+                            "derived": {},
+                        }
+                    ],
+                    "annual": [],
+                },
+                "cash_flow": {
+                    "quarterly": [
+                        {
+                            "period_end": "2026-03-31",
+                            "period_type": "3M",
+                            "currency": "INR",
+                            "values": {
+                                "operating_cash_flow": 40000000000,
+                                "capital_expenditure": -10000000000,
+                            },
+                            "derived": {"free_cash_flow": 30000000000},
+                        }
+                    ],
+                    "annual": [],
+                },
+            },
+        },
         "memory_context": [],
     }
 
@@ -135,12 +188,16 @@ def test_financial_statement_report_fallback_uses_profit_and_loss_sections(monke
     assert "## Revenue Analysis" in result["report"]
     assert "## Expense Analysis" in result["report"]
     assert "## Profitability Analysis" in result["report"]
+    assert "## Balance Sheet" in result["report"]
+    assert "## Cash Flow" in result["report"]
+    assert "INR 133.08B" in result["report"]
+    assert "INR 1.00T" in result["report"]
+    assert "INR 30.00B" in result["report"]
     assert "INR 13,308 crore" in result["report"]
     assert "Q4 FY25" in result["report"]
     assert "[F1/S1]" in result["report"]
     assert "[O1/S1] Revenue growth was 7.1% in constant currency." in result["report"]
     assert "Verified metrics: 2 of 7" in result["report"]
-    assert "Balance Sheet" not in result["report"]
 
 
 def test_macro_market_fallback_explains_transmission_channels(monkeypatch) -> None:

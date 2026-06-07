@@ -194,6 +194,7 @@ async def _run_financial_statement_report_agent(state: AgentState) -> AgentState
     market = state.get("market_data", {})
     articles = state.get("articles", [])
     evidence = state.get("financial_evidence", {})
+    statements = state.get("financial_statements", {})
 
     citations = sanitize_citations([
         {
@@ -213,6 +214,47 @@ async def _run_financial_statement_report_agent(state: AgentState) -> AgentState
     observation_lines = _source_observation_lines(evidence)
     confidence = evidence.get("confidence", {})
     freshness = evidence.get("freshness", {})
+    income_tables = _statement_tables(
+        statements,
+        "income_statement",
+        [
+            ("revenue", "Revenue"),
+            ("gross_profit", "Gross Profit"),
+            ("operating_income", "Operating Income"),
+            ("ebitda", "EBITDA"),
+            ("net_income", "Net Income"),
+            ("diluted_eps", "Diluted EPS"),
+            ("revenue_growth", "Revenue Growth"),
+            ("gross_margin", "Gross Margin"),
+            ("operating_margin", "Operating Margin"),
+            ("net_margin", "Net Margin"),
+        ],
+    )
+    balance_tables = _statement_tables(
+        statements,
+        "balance_sheet",
+        [
+            ("cash", "Cash"),
+            ("current_assets", "Current Assets"),
+            ("total_assets", "Total Assets"),
+            ("current_liabilities", "Current Liabilities"),
+            ("total_liabilities", "Total Liabilities"),
+            ("total_debt", "Total Debt"),
+            ("total_debt_change", "Total Debt Change"),
+            ("stockholders_equity", "Stockholders' Equity"),
+        ],
+    )
+    cash_flow_tables = _statement_tables(
+        statements,
+        "cash_flow",
+        [
+            ("operating_cash_flow", "Operating Cash Flow"),
+            ("capital_expenditure", "Capital Expenditure"),
+            ("free_cash_flow", "Free Cash Flow"),
+            ("investing_cash_flow", "Investing Cash Flow"),
+            ("financing_cash_flow", "Financing Cash Flow"),
+        ],
+    )
 
     fallback_report = f"""# {company} ({ticker}) Profit and Loss Analysis Report
 
@@ -224,6 +266,9 @@ This report focuses on profit and loss performance for {company} over the **{tim
 |---|---:|---|---|
 {fact_rows}
 
+## Income Statement
+{income_tables}
+
 ## Revenue Analysis
 Review reported revenue, sales volume, segment growth, and management commentary from the cited results sources.
 
@@ -232,6 +277,12 @@ Review operating expenses, fuel/input costs, finance costs, depreciation, and ot
 
 ## Profitability Analysis
 Review EBITDA, PAT/net profit, margin movement, and EPS trends. Do not infer profitability numbers from price action.
+
+## Balance Sheet
+{balance_tables}
+
+## Cash Flow
+{cash_flow_tables}
 
 ## Market Context
 - Current price: {market.get("price", "N/A")}
@@ -255,6 +306,9 @@ The following figures are reproduced from retrieved source text. They are not re
 - Latest source date: {freshness.get("latest_source_date", "Unavailable")}
 - Market data as of: {freshness.get("market_data_as_of", "Unavailable")}
 - Freshness warning: {freshness.get("warning") or "None"}
+- Statement provider: {statements.get("source", "Unavailable")}
+- Statement currency: {statements.get("currency", "Unavailable")}
+- Statements retrieved at: {statements.get("retrieved_at", "Unavailable")}
 
 ## Key Risks
 - Revenue volatility and demand cyclicality
@@ -442,3 +496,68 @@ def _format_fact_value(fact: dict) -> str:
     currency = f"{fact.get('currency')} " if fact.get("currency") else ""
     unit = f" {fact.get('unit')}" if fact.get("unit") else ""
     return f"{currency}{fact.get('value', 'Unavailable')}{unit}"
+
+
+def _statement_tables(
+    bundle: dict,
+    statement_name: str,
+    metrics: list[tuple[str, str]],
+) -> str:
+    statement = bundle.get("statements", {}).get(statement_name, {})
+    quarterly = statement.get("quarterly", [])[:4]
+    annual = statement.get("annual", [])[:3]
+    return "\n\n".join(
+        [
+            _statement_table("Quarterly", quarterly, metrics),
+            _statement_table("Annual", annual, metrics),
+        ]
+    )
+
+
+def _statement_table(
+    title: str,
+    periods: list[dict],
+    metrics: list[tuple[str, str]],
+) -> str:
+    if not periods:
+        return f"### {title}\nStructured statement data unavailable."
+
+    headers = " | ".join(period.get("period_end", "Unknown") for period in periods)
+    separator = " | ".join("---:" for _ in periods)
+    rows = [
+        f"| Metric | {headers} |",
+        f"|---|{separator}|",
+    ]
+    for metric, label in metrics:
+        values = []
+        for period in periods:
+            value = period.get("values", {}).get(metric)
+            is_derived = False
+            if value is None:
+                value = period.get("derived", {}).get(metric)
+                is_derived = value is not None
+            values.append(
+                _format_statement_value(
+                    value,
+                    None if is_derived and metric.endswith(("margin", "growth", "change")) else period.get("currency"),
+                )
+                if value is not None
+                else "Unavailable"
+            )
+        rows.append(f"| {label} | {' | '.join(values)} |")
+    return f"### {title}\n" + "\n".join(rows)
+
+
+def _format_statement_value(value: float, currency: str | None) -> str:
+    if -2 <= value <= 2 and currency is None:
+        return f"{value * 100:.2f}%"
+    prefix = f"{currency} " if currency else ""
+    absolute = abs(value)
+    for divisor, suffix in [
+        (1_000_000_000_000, "T"),
+        (1_000_000_000, "B"),
+        (1_000_000, "M"),
+    ]:
+        if absolute >= divisor:
+            return f"{prefix}{value / divisor:,.2f}{suffix}"
+    return f"{prefix}{value:,.2f}"

@@ -18,6 +18,10 @@ export type StreamEvent =
       url?: string;
     }
   | {
+      type: "financial_statements";
+      data?: FinancialStatementBundle;
+    }
+  | {
       type: "done";
       message?: string;
     }
@@ -25,6 +29,31 @@ export type StreamEvent =
       type: "error";
       message?: string;
     };
+
+export type StatementPeriod = {
+  period_end: string;
+  period_type?: string;
+  currency?: string;
+  values: Record<string, number>;
+  derived: Record<string, number>;
+};
+
+export type StatementCadences = {
+  quarterly: StatementPeriod[];
+  annual: StatementPeriod[];
+};
+
+export type FinancialStatementBundle = {
+  ticker: string;
+  source: string;
+  retrieved_at: string;
+  currency?: string;
+  statements: {
+    income_statement?: StatementCadences;
+    balance_sheet?: StatementCadences;
+    cash_flow?: StatementCadences;
+  };
+};
 
 export async function streamQuery(
   query: string,

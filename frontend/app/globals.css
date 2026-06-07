@@ -178,6 +178,106 @@ a {
   overflow: auto;
 }
 
+.statements-section {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+}
+
+.statements-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.statements-heading h2 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.statements-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.segmented-control,
+.statement-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.segmented-control {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.segmented-control button,
+.statement-tabs button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 7px 10px;
+}
+
+.segmented-control button.is-active,
+.statement-tabs button.is-active {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.statement-tabs {
+  border-bottom: 1px solid var(--border);
+  margin-top: 18px;
+}
+
+.statement-tabs button {
+  border-bottom: 2px solid transparent;
+}
+
+.statement-tabs button.is-active {
+  background: transparent;
+  border-bottom-color: var(--accent);
+}
+
+.statement-table-wrap {
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.statement-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 760px;
+  width: 100%;
+}
+
+.statement-table th,
+.statement-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.statement-table th:first-child,
+.statement-table td:first-child {
+  background: var(--surface);
+  left: 0;
+  position: sticky;
+  text-align: left;
+}
+
+@media (max-width: 700px) {
+  .statements-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .empty-state {
   height: 100%;
   display: grid;
@@ -303,4 +403,3 @@ a {
     width: 100%;
   }
 }
-

@@ -74,6 +74,12 @@ class FinancialResearchOrchestrator:
             citations=state.get("citations", []),
         )
 
+        if state.get("financial_statements", {}).get("statements"):
+            yield StreamEvent(
+                type="financial_statements",
+                data=state["financial_statements"],
+            )
+
         for section in state["report"].split("\n\n"):
             if section.startswith("## "):
                 yield StreamEvent(type="section", title=section.removeprefix("## ").split("\n")[0])

@@ -119,6 +119,99 @@ def test_financial_report_allows_exact_source_observation_numbers() -> None:
     assert error is None
 
 
+def test_financial_report_allows_structured_statement_values() -> None:
+    service = GeminiReportService(api_key="fake-key")
+    state = {
+        "intent": "financial_statement_analysis",
+        "market_data": {},
+        "financial_evidence": {"facts": [], "source_observations": []},
+        "financial_statements": {
+            "statements": {
+                "income_statement": {
+                    "quarterly": [
+                        {
+                            "period_end": "2026-03-31",
+                            "currency": "INR",
+                            "values": {"revenue": 133080000000},
+                            "derived": {"net_margin": 0.195295},
+                        }
+                    ],
+                    "annual": [],
+                }
+            }
+        },
+    }
+
+    error = service._validate_financial_numbers(
+        "Revenue was INR 133.08 billion and net margin was 19.53%.",
+        state,
+    )
+
+    assert error is None
+
+
+def test_financial_report_allows_derived_debt_change_percentage() -> None:
+    service = GeminiReportService(api_key="fake-key")
+    state = {
+        "intent": "financial_statement_analysis",
+        "market_data": {},
+        "financial_evidence": {"facts": [], "source_observations": []},
+        "financial_statements": {
+            "statements": {
+                "balance_sheet": {
+                    "quarterly": [
+                        {
+                            "period_end": "2026-03-31",
+                            "currency": "INR",
+                            "values": {"total_debt": 80000000000},
+                            "derived": {"total_debt_change": -0.2},
+                        }
+                    ],
+                    "annual": [],
+                }
+            }
+        },
+    }
+
+    error = service._validate_financial_numbers(
+        "Total debt changed by -20.00%.",
+        state,
+    )
+
+    assert error is None
+
+
+def test_financial_report_allows_conventional_half_up_rounding() -> None:
+    service = GeminiReportService(api_key="fake-key")
+    state = {
+        "intent": "financial_statement_analysis",
+        "market_data": {},
+        "financial_evidence": {"facts": [], "source_observations": []},
+        "financial_statements": {
+            "statements": {
+                "income_statement": {
+                    "quarterly": [
+                        {
+                            "period_end": "2026-03-31",
+                            "currency": "USD",
+                            "values": {"operating_income": 35885000000},
+                            "derived": {},
+                        }
+                    ],
+                    "annual": [],
+                }
+            }
+        },
+    }
+
+    error = service._validate_financial_numbers(
+        "Operating income was $35.89 billion.",
+        state,
+    )
+
+    assert error is None
+
+
 def test_financial_report_rejects_incomplete_output() -> None:
     service = GeminiReportService(api_key="fake-key")
     service._generate_with_model = AsyncMock(
