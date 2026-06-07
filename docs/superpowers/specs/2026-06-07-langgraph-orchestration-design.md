@@ -10,7 +10,10 @@ clarification behavior, report storage, tracing, and frontend compatibility.
 
 This phase implements only the orchestration foundation:
 
-- Add the LangGraph runtime dependency.
+ - Add the LangGraph runtime dependency (LangGraph v1.4.2). Pin this exact
+   version for reproducible builds — stable release 2026-03-15. To update,
+   change the pinned version in `backend/requirements.txt` and update this
+   spec to document the new version and justification.
 - Build a compiled financial-research graph.
 - Run independent research and market-data work in parallel.
 - Run sentiment after research data is available.
@@ -73,8 +76,9 @@ query
 ```
 
 `research` and `market_data` are parallel branches. `sentiment` depends on the
-research result. `join_analysis` is an explicit synchronization node and does
-not perform business logic.
+research result. `join_analysis` synchronizes the branches, merges comparison
+records by ticker, and builds financial evidence after both articles and market
+data are available.
 
 ## State Merge Strategy
 
@@ -84,18 +88,72 @@ owned by their node:
 
 - Query: entity, intent, timeframe, region, and clarification fields.
 - Research: `articles` and research-side `comparison_data`.
-- Market data: `market_data`, `financial_evidence`,
-  `financial_statements`, and market-side comparison results.
+- Market data: `market_data`, `financial_statements`, and market-side comparison
+  results.
 - Sentiment: `sentiment` and sentiment-side comparison results.
+- Join analysis: merged `comparison_data` and `financial_evidence`.
 - Memory: `memory_context`.
 - Report: `report`, `citations`, model, fallback, and error metadata.
 
 Comparison mode needs deterministic merging because research, market data, and
-sentiment enrich the same companies. A comparison merge helper combines entries
-by ticker and preserves fields supplied by each branch.
+sentiment enrich the same companies. The comparison merge helper MUST:
 
-State keys that receive parallel updates use explicit reducers where needed.
-Reducers must be deterministic and must not silently discard populated values.
+- Group incoming entries by `ticker` (exact string match after canonical
+  normalization).
+- For each ticker, merge fields deterministically using a fixed precedence
+  rule. Default precedence: `research > market_data > sentiment` (higher
+  precedence wins on conflicting scalar fields). Implementers may choose a
+  different precedence, but it must be documented and constant across runs.
+- When conflicting values are resolved in favor of a higher-precedence branch,
+  annotate the merged field with provenance metadata: e.g. `_provenance.fieldX`
+  = {"source": "research", "timestamp": "2026-03-15T12:34:56Z"}.
+- For array-valued fields, apply a canonical de-dup + append strategy
+  (preserve arrival order per-branch, then de-duplicate by item id).
+- For numeric/time fields where aggregation makes sense (e.g. price, marketcap),
+  specify the rule explicitly (default: latest-by-timestamp for time-series,
+  max() for high-water-mark metrics) in the helper's configuration.
+
+The comparison merge helper must always produce the same output for the same
+set of inputs (deterministic), and must never silently drop non-empty values
+without explicit de-duplication or aggregation rules.
+
+State keys that receive parallel updates use explicit reducers. Reducers must be
+deterministic, idempotent, and must not silently discard populated values.
+Each reducer is a named function and must be registered in a `reducers` map
+keyed by the state key so the orchestrator calls the correct reducer for each
+concurrent update.
+
+Recommended reducers (name, deterministic rule, example):
+
+- `reduce_articles`: append-then-dedupe by `article.id`, preserving original
+  arrival order across branches. Example:
+
+  - Input A: [{id: "a1", title: "x"}]
+  - Input B: [{id: "a2", title: "y"}, {id: "a1", title: "x-mod"}]
+  - Output: [{id: "a1", title: "x"}, {id: "a2", title: "y"}]
+    (first-seen wins for identical `id`, no silent drops)
+
+- `reduce_citations`: set-union by `citation.key` with canonical normalization
+  of keys (lowercase, trim). Preserve the earliest `source` for provenance.
+
+- `reduce_researchResults`: merge arrays by `item.id` with field-level merge
+  where non-null scalar fields are taken from the highest-priority branch
+  (per comparison precedence) and arrays are de-duped/concatenated.
+
+- `reduce_metadata`: shallow-merge with last-write-wins for scalar fields
+  (the reducer applies a deterministic ordering based on `sourcePriority`
+  ordering), and deep-merge for lists using union semantics.
+
+- `reduce_stateFlags` (status / boolean flags): priority-based resolution —
+  treat `true` as high priority; final result is `true` if any writer sets
+  `true`. When conflicting semantics exist, use the `sourcePriority` map to
+  deterministically break ties.
+
+- `reduce_timestamps`: use `max(timestamp)` for `last_modified` style fields.
+
+Each reducer must document its input and output invariants (types, required
+keys) and include unit tests demonstrating the expected merged result for
+concurrent inputs.
 
 ## Agent Adapters
 
@@ -115,11 +173,45 @@ SSE presentation layer.
 The orchestrator:
 
 1. Emits query status.
-2. Runs the query node directly or through a query-only graph step.
-3. Returns clarification SSE events immediately when required.
+2. Runs the query node either inline in the main compiled graph (default) or
+   as a separate pre-step (`QueryOnlyGraphStep`) when conditions require
+   immediate clarification output. Execution policy:
+
+   - Default: execute `query` inline as part of the main `StateGraph` to
+     reduce latency (`runQueryPrestep = false`). SSE output from the query is
+     buffered and emitted in order with the rest of the graph's sections.
+   - If `request.isClarification == true` OR the orchestrator is invoked with
+     `runQueryPrestep = true` then run `query` as a separate pre-step
+     (`QueryOnlyGraphStep`) before invoking the compiled graph. In this case
+     clarification SSE events are emitted immediately as they are produced
+     by the pre-step (unbuffered), enabling the UI to show clarifying
+     questions without waiting for the rest of the graph.
+
+   Implementers: call `QueryOnlyGraphStep` when the pre-step condition is
+   satisfied; otherwise include `QueryNode` inside the compiled `StateGraph`.
+
+3. Returns clarification SSE events immediately when required (pre-step
+   behavior) or emits them as part of the main stream when the `query` runs
+   inline (buffered behavior).
 4. Emits analysis status before invoking the remaining compiled graph.
 5. Receives the completed graph state.
-6. Stores the report.
+6. Attempts to store the report.
+   - On success: continue to step 7.
+   - On storage failure (DB / I/O): emit a non-terminal `error` SSE event with
+     storage failure details (`error.type = "storage_failure"`, include an
+     opaque `error.ref` for troubleshooting), keep the stream open, and
+     continue emitting report sections to the client.
+   - The orchestrator MUST trigger configurable retries for the storage
+     operation using exponential backoff (default: 5 attempts, backoff base 2,
+     randomized jitter). If retries eventually succeed, emit a follow-up
+     `status` SSE event indicating storage succeeded.
+   - If retries exhaust, emit a terminal `error` SSE event, record durable
+     report metadata `storage_failed` (distinct from an unpersisted failed
+     workflow), and close the stream so background workers can pick up the
+     failed storage artifact for later retry or manual recovery.
+   - The report metadata key `storage_failed` should include retry counts,
+     last error, and a durable `report_ref` to identify the persisted object
+     (if any partial artifact exists).
 7. Emits structured statements, report sections, deltas, citations, and done.
 
 This phase does not promise per-node live status timing from LangGraph. Status
@@ -141,8 +233,13 @@ the route's `finally` block.
 
 - Provider errors continue to be handled by individual services and fallbacks.
 - An unexpected graph-node exception terminates graph execution.
-- The SSE layer emits an `error` event with a generic message before closing
-  the stream.
+- Graph execution errors terminate the active run: the SSE layer emits a
+  terminal `error` event with a sanitized message and then closes the stream.
+- Post-graph storage failures are handled differently: the SSE layer emits a
+  non-terminal `error` event with storage failure details while keeping the
+  stream open and continuing to send report sections (see storage retry rule
+  above). If storage retries ultimately fail, emit a terminal `error` and
+  close the stream.
 - A failed workflow is not persisted as a completed report.
 - Clarification is a normal graph outcome, not an error.
 
@@ -206,4 +303,3 @@ Phase 1 is complete when:
 - Existing SSE clients work without modification.
 - Reports are persisted exactly once after successful completion.
 - All backend tests and the frontend production build pass.
-
