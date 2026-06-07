@@ -1,25 +1,28 @@
 from collections.abc import AsyncIterator
+from typing import Any
 
-from app.agents.market_data_agent import run_market_data_agent
-from app.agents.memory_agent import run_memory_agent
-from app.agents.query_agent import run_query_agent
-from app.agents.report_agent import run_report_agent
-from app.agents.research_agent import run_research_agent
-from app.agents.sentiment_agent import run_sentiment_agent
 from app.agents.state import AgentState
+from app.graphs.financial_research_graph import financial_research_graph
 from app.memory.store import report_store
 from app.schemas.events import StreamEvent
 from app.core.config import settings
 from app.services.trace_service import (
     privacy_safe_user_id,
-    summarize_state,
     trace_service,
 )
 
 
 class FinancialResearchOrchestrator:
+    def __init__(self, *, graph: Any = None, store: Any = None) -> None:
+        self.graph = graph or financial_research_graph
+        self.store = store or report_store
+
     async def stream_report(self, *, query: str, session_id: str) -> AsyncIterator[StreamEvent]:
-        state: AgentState = {"query": query, "session_id": session_id, "errors": []}
+        initial_state: AgentState = {
+            "query": query,
+            "session_id": session_id,
+            "errors": [],
+        }
         trace = trace_service.start(
             name="financial-research-query",
             user_id=privacy_safe_user_id(
@@ -29,9 +32,23 @@ class FinancialResearchOrchestrator:
             input_data={"query_length": len(query)},
         )
 
-        yield StreamEvent(type="status", agent="query", message="Understanding query")
-        with trace.span(name="query_agent", input_data=summarize_state(state)):
-            state = run_query_agent(state)
+        yield StreamEvent(
+            type="status",
+            agent="graph",
+            message="Running financial research workflow",
+        )
+        try:
+            state = await self.graph.ainvoke(
+                initial_state,
+                config={"configurable": {"trace": trace}},
+            )
+        except Exception:
+            trace.end(output={"status": "error"})
+            yield StreamEvent(
+                type="error",
+                message="Unable to complete the research workflow.",
+            )
+            return
 
         if state.get("needs_clarification"):
             question = state.get("clarification_question", "Please clarify your query.")
@@ -45,27 +62,7 @@ class FinancialResearchOrchestrator:
             yield StreamEvent(type="done", message="Clarification needed")
             return
 
-        yield StreamEvent(type="status", agent="research", message="Collecting source candidates")
-        with trace.span(name="research_agent", input_data=summarize_state(state)):
-            state = await run_research_agent(state)
-
-        yield StreamEvent(type="status", agent="market_data", message="Fetching market metrics")
-        with trace.span(name="market_data_agent", input_data=summarize_state(state)):
-            state = await run_market_data_agent(state)
-
-        yield StreamEvent(type="status", agent="sentiment", message="Scoring source sentiment")
-        with trace.span(name="sentiment_agent", input_data=summarize_state(state)):
-            state = run_sentiment_agent(state)
-
-        yield StreamEvent(type="status", agent="memory", message="Retrieving session context")
-        with trace.span(name="memory_agent", input_data=summarize_state(state)):
-            state = run_memory_agent(state)
-
-        yield StreamEvent(type="status", agent="report", message="Writing structured report")
-        with trace.span(name="report_agent", input_data=summarize_state(state)):
-            state = await run_report_agent(state)
-
-        report_store.add(
+        self.store.add(
             session_id=session_id,
             query=query,
             ticker=state.get("ticker"),

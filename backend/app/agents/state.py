@@ -11,6 +11,9 @@ class AgentState(TypedDict, total=False):
     region: str
     entities: list[dict[str, Any]]
     comparison_data: list[dict[str, Any]]
+    research_comparison_data: list[dict[str, Any]]
+    market_comparison_data: list[dict[str, Any]]
+    sentiment_comparison_data: list[dict[str, Any]]
     financial_evidence: dict[str, Any]
     financial_statements: dict[str, Any]
     needs_clarification: bool

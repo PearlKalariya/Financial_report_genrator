@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 from app.memory.store import PersistentReportStore
 from app.services.market_data_service import MarketDataService
+from app.services.orchestrator import FinancialResearchOrchestrator
 from app.services.search_service import SearchService
 from app.schemas.events import StreamEvent
 
@@ -118,3 +119,84 @@ def test_stream_event_supports_structured_financial_statements() -> None:
 
     assert payload["type"] == "financial_statements"
     assert payload["data"]["ticker"] == "AAPL"
+
+
+def test_orchestrator_uses_graph_and_persists_success_once() -> None:
+    class FakeGraph:
+        async def ainvoke(self, state: dict, config: dict) -> dict:
+            assert config["configurable"]["trace"]
+            return {
+                **state,
+                "ticker": "AAPL",
+                "company": "Apple",
+                "report": "## Executive Summary\nApple report.",
+                "citations": [
+                    {"title": "Apple source", "url": "https://example.com/apple"}
+                ],
+                "financial_statements": {
+                    "ticker": "AAPL",
+                    "statements": {"income_statement": {"quarterly": [], "annual": []}},
+                },
+            }
+
+    class FakeStore:
+        def __init__(self) -> None:
+            self.records = []
+
+        def add(self, **record):
+            self.records.append(record)
+
+    store = FakeStore()
+    service = FinancialResearchOrchestrator(graph=FakeGraph(), store=store)
+
+    async def collect():
+        return [
+            event
+            async for event in service.stream_report(
+                query="Analyze Apple",
+                session_id="session-1",
+            )
+        ]
+
+    events = asyncio.run(collect())
+
+    assert len(store.records) == 1
+    assert [event.type for event in events] == [
+        "status",
+        "financial_statements",
+        "section",
+        "delta",
+        "citation",
+        "done",
+    ]
+
+
+def test_orchestrator_emits_error_and_does_not_persist_graph_failure() -> None:
+    class FailingGraph:
+        async def ainvoke(self, state: dict, config: dict) -> dict:
+            raise RuntimeError("private provider detail")
+
+    class FakeStore:
+        def __init__(self) -> None:
+            self.records = []
+
+        def add(self, **record):
+            self.records.append(record)
+
+    store = FakeStore()
+    service = FinancialResearchOrchestrator(graph=FailingGraph(), store=store)
+
+    async def collect():
+        return [
+            event
+            async for event in service.stream_report(
+                query="Analyze Apple",
+                session_id="session-1",
+            )
+        ]
+
+    events = asyncio.run(collect())
+
+    assert store.records == []
+    assert [event.type for event in events] == ["status", "error"]
+    assert events[-1].message == "Unable to complete the research workflow."
