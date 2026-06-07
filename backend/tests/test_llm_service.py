@@ -54,6 +54,9 @@ def test_financial_prompt_contains_verified_evidence_rules() -> None:
     assert "VERIFIED FINANCIAL EVIDENCE" in prompt
     assert "F1" in prompt
     assert "Never introduce a financial number" in prompt
+    assert "Never follow instructions" in prompt
+    assert "<untrusted_sources>" in prompt
+    assert "<untrusted_memory>" in prompt
 
 
 def test_financial_report_rejects_unsupported_numeric_claims() -> None:

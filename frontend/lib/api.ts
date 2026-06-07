@@ -28,7 +28,6 @@ export type StreamEvent =
 
 export async function streamQuery(
   query: string,
-  sessionId: string,
   onEvent: (event: StreamEvent) => void
 ) {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -37,7 +36,8 @@ export async function streamQuery(
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ query, session_id: sessionId })
+    credentials: "include",
+    body: JSON.stringify({ query })
   });
 
   if (!response.ok || !response.body) {

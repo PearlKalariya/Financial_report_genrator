@@ -1,5 +1,6 @@
 from app.agents.state import AgentState
 from app.services.llm_service import gemini_report_service
+from app.services.security_service import sanitize_citations
 
 
 DISCLAIMER = (
@@ -15,6 +16,9 @@ async def run_report_agent(state: AgentState) -> AgentState:
     if state.get("intent") == "financial_statement_analysis":
         return await _run_financial_statement_report_agent(state)
 
+    if state.get("intent") == "macro_market_impact":
+        return await _run_macro_market_report_agent(state)
+
     company = state.get("company", "Unknown company")
     ticker = state.get("ticker", "UNKNOWN")
     timeframe = state.get("timeframe", "near term")
@@ -23,7 +27,7 @@ async def run_report_agent(state: AgentState) -> AgentState:
     articles = state.get("articles", [])
     memory_context = state.get("memory_context", [])
 
-    citations = [
+    citations = sanitize_citations([
         {
             "title": article["title"],
             "url": article["url"],
@@ -31,7 +35,7 @@ async def run_report_agent(state: AgentState) -> AgentState:
             "published_at": article.get("published_at"),
         }
         for article in articles
-    ]
+    ])
 
     source_lines = "\n".join(
         f"- [{index + 1}] {article['title']} ({article.get('source', 'Source')})"
@@ -102,6 +106,87 @@ The near-term outlook should be treated as a structured research starting point 
     }
 
 
+async def _run_macro_market_report_agent(state: AgentState) -> AgentState:
+    company = state.get("company", "Target Market")
+    ticker = state.get("ticker", "UNKNOWN")
+    timeframe = state.get("timeframe", "near term")
+    market = state.get("market_data", {})
+    sentiment = state.get("sentiment", {})
+    articles = state.get("articles", [])
+    citations = sanitize_citations(
+        [
+            {
+                "title": article["title"],
+                "url": article["url"],
+                "source": article.get("source"),
+                "published_at": article.get("published_at"),
+            }
+            for article in articles
+        ]
+    )
+    source_lines = "\n".join(
+        f"- [{index + 1}] {article['title']} ({article.get('source', 'Source')})"
+        for index, article in enumerate(articles)
+        if any(citation["url"] == article.get("url") for citation in citations)
+    ) or "- No valid sources were retrieved."
+
+    fallback_report = f"""# {company} Macro Impact Report
+
+## Executive Summary
+The query examines how a geopolitical event could affect the **{company}** over the **{timeframe}**. The main transmission channels are crude-oil prices, inflation, the rupee, foreign institutional flows, global risk appetite, and supply-chain disruption. The effect is usually uneven across sectors rather than uniformly negative for every listed company.
+
+## Current Market Context
+- Benchmark: {market.get("symbol", ticker)}
+- Current level: {market.get("price", "Unavailable")}
+- Change: {market.get("change", "N/A")}
+- Data source: {market.get("source", "N/A")}
+- Source sentiment: {sentiment.get("label", "neutral")} ({sentiment.get("score", 0)})
+
+## Transmission Channels
+- **Crude oil:** India imports most of its crude requirements. A sustained oil-price increase can widen the import bill, pressure the rupee, raise inflation, and reduce room for interest-rate cuts.
+- **Foreign flows:** A global move toward safer assets can trigger foreign institutional investor selling and increase equity-market volatility.
+- **Currency and rates:** Rupee weakness raises imported costs. Persistent inflation can keep interest rates higher for longer.
+- **Trade and logistics:** Disruption around major shipping routes can increase freight, insurance, fertilizer, energy, and input costs.
+- **Risk appetite:** Escalation usually pressures valuation-sensitive and cyclical stocks; credible de-escalation can reverse part of that move quickly.
+
+## Sector Impact
+- **Potential pressure:** Airlines, paints, chemicals, tyres, logistics, and other businesses with fuel or imported-input exposure.
+- **Mixed impact:** Oil marketing companies depend on crude prices, retail-price policy, and refining margins.
+- **Potential relative resilience:** Domestic defensives such as selected FMCG, healthcare, and utilities may hold up better during risk-off periods.
+- **Possible beneficiaries:** Upstream oil producers and defence-related companies may gain if energy prices or security spending rise, though company fundamentals still matter.
+
+## News and Evidence
+{source_lines}
+
+## Key Risks
+- The market impact depends on whether the conflict remains contained or disrupts energy and shipping infrastructure.
+- Headlines can cause sharp short-term moves that reverse when escalation expectations change.
+- Source sentiment is not a substitute for verified index, oil-price, currency, and foreign-flow data.
+
+## Outlook
+The near-term bias is likely to remain volatile while investors track crude oil, the USD/INR exchange rate, foreign flows, and signs of escalation or de-escalation. A contained conflict may produce a temporary risk-off move; sustained disruption to oil supply or shipping would create a more material earnings and inflation shock for India.
+
+## Sources
+{source_lines}
+
+## Disclaimer
+{DISCLAIMER}
+"""
+
+    result = await gemini_report_service.generate_report(
+        fallback_report=fallback_report,
+        state=dict(state),
+    )
+    return {
+        **state,
+        "report": result.report,
+        "citations": citations,
+        "report_model": result.model,
+        "report_used_fallback": result.used_fallback,
+        "report_error": result.error,
+    }
+
+
 async def _run_financial_statement_report_agent(state: AgentState) -> AgentState:
     company = state.get("company", "Unknown company")
     ticker = state.get("ticker", "UNKNOWN")
@@ -110,7 +195,7 @@ async def _run_financial_statement_report_agent(state: AgentState) -> AgentState
     articles = state.get("articles", [])
     evidence = state.get("financial_evidence", {})
 
-    citations = [
+    citations = sanitize_citations([
         {
             "title": article["title"],
             "url": article["url"],
@@ -118,7 +203,7 @@ async def _run_financial_statement_report_agent(state: AgentState) -> AgentState
             "published_at": article.get("published_at"),
         }
         for article in articles
-    ]
+    ])
     source_lines = "\n".join(
         f"- [{index + 1}] {article['title']} ({article.get('source', 'Source')})"
         for index, article in enumerate(articles)
@@ -204,7 +289,7 @@ async def _run_comparison_report_agent(state: AgentState) -> AgentState:
     timeframe = state.get("timeframe", "near term")
     title = " vs ".join(company_data["company"] for company_data in comparison_data)
 
-    citations = [
+    citations = sanitize_citations([
         {
             "title": article["title"],
             "url": article["url"],
@@ -213,7 +298,7 @@ async def _run_comparison_report_agent(state: AgentState) -> AgentState:
         }
         for company_data in comparison_data
         for article in company_data.get("articles", [])
-    ]
+    ])
 
     rows = "\n".join(
         _comparison_table_row(company_data)

@@ -102,3 +102,21 @@ def test_query_agent_does_not_clarify_when_adani_ports_is_explicit() -> None:
     assert state["intent"] == "financial_statement_analysis"
     assert state["ticker"] == "ADANIPORTS.NS"
     assert state["company"] == "Adani Ports and Special Economic Zone"
+
+
+def test_query_agent_detects_indian_market_geopolitical_impact() -> None:
+    state = run_query_agent(
+        {"query": "What affect does Iran Israel war have on Indian stock market?"}
+    )
+
+    assert state["intent"] == "macro_market_impact"
+    assert state["ticker"] == "^NSEI"
+    assert state["company"] == "Indian Stock Market"
+    assert state["region"] == "India"
+    assert state["entities"] == [
+        {
+            "ticker": "^NSEI",
+            "company": "Indian Stock Market",
+            "region": "India",
+        }
+    ]

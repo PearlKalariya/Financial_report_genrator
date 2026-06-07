@@ -91,13 +91,37 @@ STOP_WORDS = {
     "report",
 }
 
+MACRO_MARKETS = {
+    "indian stock market": ("^NSEI", "Indian Stock Market", "India"),
+    "india stock market": ("^NSEI", "Indian Stock Market", "India"),
+    "indian market": ("^NSEI", "Indian Stock Market", "India"),
+    "nifty": ("^NSEI", "Nifty 50", "India"),
+    "sensex": ("^BSESN", "BSE Sensex", "India"),
+    "us stock market": ("^GSPC", "United States Stock Market", "United States"),
+    "american stock market": ("^GSPC", "United States Stock Market", "United States"),
+}
+
+MACRO_IMPACT_TERMS = {
+    "affect",
+    "effect",
+    "impact",
+    "war",
+    "conflict",
+    "tension",
+    "sanction",
+    "oil",
+    "inflation",
+    "geopolitical",
+}
+
 
 def run_query_agent(state: AgentState) -> AgentState:
     query = state["query"].strip()
     lowered = query.lower()
     normalized = _normalize_query(lowered)
 
-    entities = _extract_entities(normalized)
+    macro_entity = _extract_macro_market(normalized)
+    entities = [macro_entity] if macro_entity else _extract_entities(normalized)
     clarification = _find_ambiguous_alias(normalized)
     if clarification and not entities:
         return {
@@ -198,6 +222,15 @@ def _extract_entities(query: str) -> list[dict[str, str]]:
     return entities
 
 
+def _extract_macro_market(query: str) -> dict[str, str] | None:
+    if not any(term in query.split() for term in MACRO_IMPACT_TERMS):
+        return None
+    for alias, (ticker, company, region) in MACRO_MARKETS.items():
+        if _contains_alias(query, alias):
+            return {"ticker": ticker, "company": company, "region": region}
+    return None
+
+
 def _fuzzy_match_entity(query: str) -> tuple[str, tuple[str, str, str]] | None:
     tokens = [
         token
@@ -221,6 +254,9 @@ def _overlaps(left: tuple[int, int], right: tuple[int, int]) -> bool:
 
 
 def _detect_intent(query: str) -> str:
+    normalized = _normalize_query(query)
+    if _extract_macro_market(normalized):
+        return "macro_market_impact"
     if "compare" in query:
         return "comparison"
     if (

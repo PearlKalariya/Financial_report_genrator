@@ -3,8 +3,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { streamQuery, StreamEvent } from "@/lib/api";
 
-const SESSION_ID = "portfolio-demo-session";
-
 const PROMPTS = [
   "What is the outlook for TCS in Q3 2026?",
   "Summarize recent news for Reliance Industries.",
@@ -49,7 +47,7 @@ export function FinancialAgentApp() {
     setStatus("Starting research workflow");
 
     try {
-      await streamQuery(query.trim(), SESSION_ID, (streamEvent: StreamEvent) => {
+      await streamQuery(query.trim(), (streamEvent: StreamEvent) => {
         if (streamEvent.type === "status") {
           setStatus(`${streamEvent.agent ?? "agent"}: ${streamEvent.message ?? "Working"}`);
         }
@@ -148,7 +146,7 @@ export function FinancialAgentApp() {
               {citations.length === 0 ? (
                 <div className="notice">Sources will appear after report generation.</div>
               ) : (
-                citations.map((citation, index) => (
+                citations.filter((citation) => isSafeCitationUrl(citation.url)).map((citation, index) => (
                   <a className="citation" href={citation.url} key={`${citation.url}-${index}`} rel="noreferrer" target="_blank">
                     <span className="citation-title">{index + 1}. {citation.title}</span>
                     <span className="citation-url">{citation.url}</span>
@@ -168,4 +166,17 @@ export function FinancialAgentApp() {
       </div>
     </main>
   );
+}
+
+function isSafeCitationUrl(value?: string): boolean {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }

@@ -9,7 +9,12 @@ from app.agents.sentiment_agent import run_sentiment_agent
 from app.agents.state import AgentState
 from app.memory.store import report_store
 from app.schemas.events import StreamEvent
-from app.services.trace_service import trace_service
+from app.core.config import settings
+from app.services.trace_service import (
+    privacy_safe_user_id,
+    summarize_state,
+    trace_service,
+)
 
 
 class FinancialResearchOrchestrator:
@@ -17,12 +22,15 @@ class FinancialResearchOrchestrator:
         state: AgentState = {"query": query, "session_id": session_id, "errors": []}
         trace = trace_service.start(
             name="financial-research-query",
-            user_id=session_id,
-            input_data={"query": query, "session_id": session_id},
+            user_id=privacy_safe_user_id(
+                session_id,
+                settings.session_secret or settings.app_name,
+            ),
+            input_data={"query_length": len(query)},
         )
 
         yield StreamEvent(type="status", agent="query", message="Understanding query")
-        with trace.span(name="query_agent", input_data=dict(state)):
+        with trace.span(name="query_agent", input_data=summarize_state(state)):
             state = run_query_agent(state)
 
         if state.get("needs_clarification"):
@@ -38,23 +46,23 @@ class FinancialResearchOrchestrator:
             return
 
         yield StreamEvent(type="status", agent="research", message="Collecting source candidates")
-        with trace.span(name="research_agent", input_data=dict(state)):
+        with trace.span(name="research_agent", input_data=summarize_state(state)):
             state = await run_research_agent(state)
 
         yield StreamEvent(type="status", agent="market_data", message="Fetching market metrics")
-        with trace.span(name="market_data_agent", input_data=dict(state)):
+        with trace.span(name="market_data_agent", input_data=summarize_state(state)):
             state = await run_market_data_agent(state)
 
         yield StreamEvent(type="status", agent="sentiment", message="Scoring source sentiment")
-        with trace.span(name="sentiment_agent", input_data=dict(state)):
+        with trace.span(name="sentiment_agent", input_data=summarize_state(state)):
             state = run_sentiment_agent(state)
 
         yield StreamEvent(type="status", agent="memory", message="Retrieving session context")
-        with trace.span(name="memory_agent", input_data=dict(state)):
+        with trace.span(name="memory_agent", input_data=summarize_state(state)):
             state = run_memory_agent(state)
 
         yield StreamEvent(type="status", agent="report", message="Writing structured report")
-        with trace.span(name="report_agent", input_data=dict(state)):
+        with trace.span(name="report_agent", input_data=summarize_state(state)):
             state = await run_report_agent(state)
 
         report_store.add(

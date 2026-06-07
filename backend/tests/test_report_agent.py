@@ -141,3 +141,47 @@ def test_financial_statement_report_fallback_uses_profit_and_loss_sections(monke
     assert "[O1/S1] Revenue growth was 7.1% in constant currency." in result["report"]
     assert "Verified metrics: 2 of 7" in result["report"]
     assert "Balance Sheet" not in result["report"]
+
+
+def test_macro_market_fallback_explains_transmission_channels(monkeypatch) -> None:
+    async def fake_generate_report(*, fallback_report: str, state: dict) -> GeminiReportResult:
+        return GeminiReportResult(
+            report=fallback_report,
+            used_fallback=True,
+            model="test-model",
+            error="test fallback",
+        )
+
+    monkeypatch.setattr(report_agent.gemini_report_service, "generate_report", fake_generate_report)
+    state = {
+        "query": "What affect does Iran Israel war have on Indian stock market?",
+        "ticker": "^NSEI",
+        "company": "Indian Stock Market",
+        "intent": "macro_market_impact",
+        "timeframe": "near term",
+        "region": "India",
+        "market_data": {
+            "price": "INR 25,000.00",
+            "change": "-1.20%",
+            "source": "Yahoo Finance",
+            "symbol": "^NSEI",
+        },
+        "sentiment": {"label": "negative", "score": -0.2, "confidence": 0.74},
+        "articles": [
+            {
+                "title": "Conflict impact on Indian markets",
+                "url": "https://example.com/market",
+                "source": "Example",
+                "published_at": "Latest",
+            }
+        ],
+        "memory_context": [],
+    }
+
+    result = asyncio.run(report_agent.run_report_agent(state))
+
+    assert "Indian Stock Market Macro Impact Report" in result["report"]
+    assert "## Transmission Channels" in result["report"]
+    assert "Crude oil" in result["report"]
+    assert "## Sector Impact" in result["report"]
+    assert "MARKET (MARKET)" not in result["report"]

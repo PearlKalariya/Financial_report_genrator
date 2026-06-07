@@ -1,8 +1,28 @@
 from contextlib import suppress
+import hashlib
 from time import perf_counter
 from typing import Any
 
 from app.core.config import settings
+
+
+def privacy_safe_user_id(session_id: str, secret: str) -> str:
+    return hashlib.sha256(f"{secret}:{session_id}".encode("utf-8")).hexdigest()
+
+
+def summarize_state(state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ticker": state.get("ticker"),
+        "company": state.get("company"),
+        "intent": state.get("intent"),
+        "timeframe": state.get("timeframe"),
+        "entity_count": len(state.get("entities", [])),
+        "article_count": len(state.get("articles", [])),
+        "comparison_count": len(state.get("comparison_data", [])),
+        "error_count": len(state.get("errors", [])),
+        "report_used_fallback": state.get("report_used_fallback"),
+        "report_model": state.get("report_model"),
+    }
 
 
 class TraceService:
@@ -88,4 +108,3 @@ class LangfuseSpan:
 
 
 trace_service = TraceService()
-
