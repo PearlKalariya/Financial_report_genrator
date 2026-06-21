@@ -7,3 +7,4 @@ httpx==0.28.1
 pytest==9.0.3
 langfuse==2.57.12
 langgraph==1.1.10
+chromadb==1.4.1

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.core.config import settings
+from app.memory.store import report_store
 
 router = APIRouter()
 
@@ -11,7 +12,7 @@ async def health() -> dict:
         "status": "ok",
         "backend": "fastapi",
         "workflow": "agent-mvp",
-        "memory": "persistent-json",
+        "memory": "chromadb" if report_store.chroma_available else "persistent-json",
         "memory_path": settings.chroma_db_path,
         "providers": {
             "gemini": bool(settings.google_api_key),
@@ -19,5 +20,6 @@ async def health() -> dict:
             "serper": bool(settings.serper_api_key),
             "alpha_vantage": bool(settings.alpha_vantage_api_key),
             "langfuse": bool(settings.langfuse_public_key and settings.langfuse_secret_key),
+            "chromadb": report_store.chroma_available,
         },
     }

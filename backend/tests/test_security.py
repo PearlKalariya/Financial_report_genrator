@@ -218,4 +218,5 @@ def test_api_returns_security_headers_and_rejects_untrusted_host() -> None:
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["referrer-policy"] == "no-referrer"
     assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert response.json()["providers"]["chromadb"] is True
     assert untrusted.status_code == 400
