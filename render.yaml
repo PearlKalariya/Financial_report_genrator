@@ -1,0 +1,48 @@
+# Render blueprint for the backend. Deploy the frontend on Vercel (see vercel.json).
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: financial-agent-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: chroma-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      # Persistent secret so signed sessions survive restarts.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Cross-site cookies for a Vercel frontend on a different domain.
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: none
+      # Memory persists on the mounted disk.
+      - key: CHROMA_DB_PATH
+        value: /data/chroma_db
+      # Set to your Vercel domain(s) as a JSON array, e.g. ["your-app.vercel.app"].
+      - key: TRUSTED_HOSTS
+        sync: false
+      # Set to your Vercel origin(s) as a JSON array, e.g. ["https://your-app.vercel.app"].
+      - key: CORS_ORIGINS
+        sync: false
+      # Provider keys — set in the Render dashboard.
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        sync: false

@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  fetchHistory,
   FinancialStatementBundle,
+  ReportRecord,
   StatementPeriod,
   streamQuery,
   StreamEvent
@@ -39,6 +41,28 @@ export function FinancialAgentApp() {
   const [statements, setStatements] = useState<FinancialStatementBundle | null>(null);
   const [statementKey, setStatementKey] = useState<StatementKey>("income_statement");
   const [cadence, setCadence] = useState<Cadence>("quarterly");
+  const [history, setHistory] = useState<ReportRecord[]>([]);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setHistory(await fetchHistory());
+    } catch {
+      // History is best-effort; ignore transient load failures.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  function viewHistoryRecord(record: ReportRecord) {
+    setQuery(record.query);
+    setReport(record.report);
+    setCitations(record.citations ?? []);
+    setStatements(null);
+    setError(null);
+    setStatus(`Loaded saved report from ${formatTimestamp(record.created_at)}`);
+  }
 
   const metrics = useMemo(
     () => [
@@ -88,6 +112,7 @@ export function FinancialAgentApp() {
 
         if (streamEvent.type === "done") {
           setStatus(streamEvent.message ?? "Report complete");
+          void loadHistory();
         }
       });
     } catch (streamError) {
@@ -184,6 +209,34 @@ export function FinancialAgentApp() {
                     <span className="citation-url">{citation.url}</span>
                   </a>
                 ))
+              )}
+            </div>
+          </section>
+
+          <section className="side-section">
+            <h2>Session History</h2>
+            <div className="history-list">
+              {history.length === 0 ? (
+                <div className="notice">Past reports for this session will appear here.</div>
+              ) : (
+                history
+                  .slice()
+                  .reverse()
+                  .map((record) => (
+                    <button
+                      className="history-item"
+                      key={record.report_id}
+                      onClick={() => viewHistoryRecord(record)}
+                      type="button"
+                    >
+                      <span className="history-query">{record.query}</span>
+                      <span className="history-meta">
+                        {[record.ticker, formatTimestamp(record.created_at)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </button>
+                  ))
               )}
             </div>
           </section>
@@ -317,6 +370,19 @@ function formatStatementValue(period: StatementPeriod, metric: string): string {
     style: period.currency ? "currency" : "decimal",
     currency: period.currency || undefined
   }).format(value);
+}
+
+function formatTimestamp(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function isSafeCitationUrl(value?: string): boolean {

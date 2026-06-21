@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
     chroma_db_path: str = "./chroma_db"
     gemini_model: str = "gemini-2.5-flash"
+    embedding_model: str = "text-embedding-004"
     session_secret: str = ""
     session_cookie_secure: bool = False
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"

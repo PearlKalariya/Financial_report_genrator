@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Implemented (commit `35e8835`). Deviation from plan: `merge_comparison_data` lives in `app/graphs/financial_research_graph.py`, not `app/agents/state.py`.
+
 **Goal:** Replace the sequential orchestration service with a compiled LangGraph workflow that runs research and market-provider retrieval concurrently without changing the public SSE API.
 
 **Architecture:** A `StateGraph` owns query routing, parallel research and market-provider nodes, sentiment, an analysis join, memory, and report generation. Existing agents remain business-logic boundaries; graph adapters return narrow updates, and the join builds financial evidence only after both articles and market data are available.
@@ -15,7 +17,7 @@
 **Files:**
 - Modify: `backend/requirements.txt`
 
-- [ ] **Step 1: Add the pinned runtime dependency**
+- [x] **Step 1: Add the pinned runtime dependency**
 
 Add:
 
@@ -23,7 +25,7 @@ Add:
 langgraph==1.1.10
 ```
 
-- [ ] **Step 2: Install the backend dependencies**
+- [x] **Step 2: Install the backend dependencies**
 
 Run:
 
@@ -33,7 +35,7 @@ python -m pip install -r requirements.txt
 
 Expected: installation succeeds and `langgraph 1.1.10` is available.
 
-- [ ] **Step 3: Verify the import**
+- [x] **Step 3: Verify the import**
 
 Run:
 
@@ -49,13 +51,13 @@ Expected: `langgraph-ok`.
 - Modify: `backend/app/agents/state.py`
 - Create: `backend/tests/test_financial_research_graph.py`
 
-- [ ] **Step 1: Write failing reducer tests**
+- [x] **Step 1: Write failing reducer tests**
 
 Add tests that import `merge_comparison_data` and verify entries with the same
 ticker retain articles, market data, financial statements, evidence, and
 sentiment when updates arrive from different branches.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -65,13 +67,13 @@ python -m pytest tests/test_financial_research_graph.py -q
 
 Expected: collection fails because the graph module or reducer does not exist.
 
-- [ ] **Step 3: Add reducer annotations and merge helper**
+- [x] **Step 3: Add reducer annotations and merge helper**
 
 Annotate parallel state fields using `typing.Annotated`. Implement a
 deterministic `merge_comparison_data(left, right)` that merges dictionaries by
 ticker and preserves input order.
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run:
 
@@ -88,7 +90,7 @@ Expected: reducer test passes.
 - Create: `backend/app/graphs/financial_research_graph.py`
 - Modify: `backend/tests/test_financial_research_graph.py`
 
-- [ ] **Step 1: Write failing graph-order tests**
+- [x] **Step 1: Write failing graph-order tests**
 
 Add tests with injected node functions and `asyncio.Event` coordination that
 assert:
@@ -100,7 +102,7 @@ assert:
 - memory and report execute after join;
 - clarification reaches `END` without downstream calls.
 
-- [ ] **Step 2: Run the graph tests and verify RED**
+- [x] **Step 2: Run the graph tests and verify RED**
 
 Run:
 
@@ -110,7 +112,7 @@ python -m pytest tests/test_financial_research_graph.py -q
 
 Expected: graph construction API is missing.
 
-- [ ] **Step 3: Implement graph node adapters**
+- [x] **Step 3: Implement graph node adapters**
 
 Create adapters with these ownership rules:
 
@@ -127,7 +129,7 @@ report_node -> report/citations/model/fallback/error
 The market-provider node must fetch using `entities` directly and must not
 require research-side `comparison_data`.
 
-- [ ] **Step 4: Compile the graph**
+- [x] **Step 4: Compile the graph**
 
 Build:
 
@@ -144,7 +146,7 @@ join_analysis -> memory -> report -> END
 
 Expose a factory for tests and one application-level compiled graph.
 
-- [ ] **Step 5: Run graph tests and verify GREEN**
+- [x] **Step 5: Run graph tests and verify GREEN**
 
 Run:
 
@@ -160,7 +162,7 @@ Expected: all graph tests pass.
 - Modify: `backend/app/services/orchestrator.py`
 - Modify: `backend/tests/test_services.py`
 
-- [ ] **Step 1: Write failing orchestrator compatibility tests**
+- [x] **Step 1: Write failing orchestrator compatibility tests**
 
 Add tests that replace the compiled graph with a fake async graph and verify:
 
@@ -169,7 +171,7 @@ Add tests that replace the compiled graph with a fake async graph and verify:
 - successful execution persists exactly one report;
 - graph exceptions emit one generic error event and persist nothing.
 
-- [ ] **Step 2: Run compatibility tests and verify RED**
+- [x] **Step 2: Run compatibility tests and verify RED**
 
 Run:
 
@@ -179,7 +181,7 @@ python -m pytest tests/test_services.py -q
 
 Expected: tests fail because the orchestrator still calls agents directly.
 
-- [ ] **Step 3: Replace direct agent calls with graph invocation**
+- [x] **Step 3: Replace direct agent calls with graph invocation**
 
 Inject the compiled graph into `FinancialResearchOrchestrator`. Invoke it with:
 
@@ -191,7 +193,7 @@ Keep SSE formatting and persistence in the orchestrator. Catch unexpected graph
 exceptions, end the trace with sanitized failure metadata, emit a generic
 `error` event, and return without persistence.
 
-- [ ] **Step 4: Run compatibility tests and verify GREEN**
+- [x] **Step 4: Run compatibility tests and verify GREEN**
 
 Run:
 
@@ -206,7 +208,7 @@ Expected: compatibility and security tests pass.
 **Files:**
 - Modify only if a regression is discovered in files owned by this phase.
 
-- [ ] **Step 1: Run the full backend suite**
+- [x] **Step 1: Run the full backend suite**
 
 Run:
 
@@ -216,7 +218,7 @@ python -m pytest tests -q
 
 Expected: all tests pass.
 
-- [ ] **Step 2: Compile backend modules**
+- [x] **Step 2: Compile backend modules**
 
 Run:
 
@@ -226,7 +228,7 @@ python -m compileall app
 
 Expected: exit code 0.
 
-- [ ] **Step 3: Build the frontend**
+- [x] **Step 3: Build the frontend**
 
 Run from `frontend/`:
 
@@ -236,12 +238,12 @@ npm.cmd run build
 
 Expected: Next.js production build succeeds.
 
-- [ ] **Step 4: Restart local services**
+- [x] **Step 4: Restart local services**
 
 Restart FastAPI on `127.0.0.1:8000` and Next.js development mode on
 `127.0.0.1:3000`.
 
-- [ ] **Step 5: Run a live SSE smoke test**
+- [x] **Step 5: Run a live SSE smoke test**
 
 Submit:
 
@@ -252,7 +254,7 @@ Compare Apple, Meta, and Amazon.
 Verify the stream returns a comparison report, citations, `done`, no error
 event, and one new stored report.
 
-- [ ] **Step 6: Verify the graph dependency and runtime**
+- [x] **Step 6: Verify the graph dependency and runtime**
 
 Confirm `/api/health` is healthy and inspect the compiled graph nodes to verify
 `query`, `research`, `market_provider`, `sentiment`, `join_analysis`, `memory`,

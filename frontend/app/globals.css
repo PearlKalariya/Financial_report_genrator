@@ -368,6 +368,41 @@ a {
   overflow-wrap: anywhere;
 }
 
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.history-item:hover {
+  border-color: var(--accent, #2563eb);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.history-query {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .notice {
   border: 1px solid #f2d39b;
   background: #fff7ed;

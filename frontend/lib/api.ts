@@ -55,11 +55,44 @@ export type FinancialStatementBundle = {
   };
 };
 
+export type Citation = {
+  title: string;
+  url: string;
+  source?: string | null;
+  published_at?: string | null;
+};
+
+export type ReportRecord = {
+  report_id: string;
+  query: string;
+  ticker?: string | null;
+  company?: string | null;
+  report: string;
+  citations: Citation[];
+  created_at: string;
+};
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+export async function fetchHistory(): Promise<ReportRecord[]> {
+  const response = await fetch(`${API_BASE_URL}/api/history`, {
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to load history. API returned ${response.status}.`);
+  }
+
+  const data = (await response.json()) as { items?: ReportRecord[] };
+  return data.items ?? [];
+}
+
 export async function streamQuery(
   query: string,
   onEvent: (event: StreamEvent) => void
 ) {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  const apiBaseUrl = API_BASE_URL;
   const response = await fetch(`${apiBaseUrl}/api/query`, {
     method: "POST",
     headers: {

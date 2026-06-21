@@ -10,10 +10,10 @@ clarification behavior, report storage, tracing, and frontend compatibility.
 
 This phase implements only the orchestration foundation:
 
- - Add the LangGraph runtime dependency (LangGraph v1.4.2). Pin this exact
-   version for reproducible builds — stable release 2026-03-15. To update,
-   change the pinned version in `backend/requirements.txt` and update this
-   spec to document the new version and justification.
+ - Add the LangGraph runtime dependency (LangGraph 1.1.10). Pin this exact
+   version for reproducible builds, matching `backend/requirements.txt`. To
+   update, change the pinned version in `backend/requirements.txt` and update
+   this spec to document the new version and justification.
 - Build a compiled financial-research graph.
 - Run independent research and market-data work in parallel.
 - Run sentiment after research data is available.

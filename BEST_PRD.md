@@ -4,7 +4,7 @@ Product Requirements Document + Technical Design Document
 
 Version: 3.0  
 Author: Pearl  
-Status: Planning  
+Status: In Progress (Milestones 1-5 implemented; memory, observability, and deployment ongoing)  
 Last Updated: June 2026
 
 ## 1. Product Vision
@@ -47,7 +47,7 @@ There is a need for a lightweight research assistant that combines live news, ma
 - Use specialized agents with clear responsibilities.
 - Wrap external APIs inside service classes.
 - Use FastAPI for backend APIs and SSE streaming.
-- Use Next.js 15, TypeScript, Tailwind CSS, and shadcn/ui for the frontend.
+- Use Next.js (App Router) and TypeScript for the frontend. The current build runs Next.js 16 with React 19 and plain CSS; Tailwind CSS and shadcn/ui remain a future styling upgrade, not part of the shipped MVP.
 - Add ChromaDB-based memory.
 - Add Langfuse observability for traces, latency, costs, errors, and tool calls.
 - Maintain production-quality structure, tests, logging, and environment-based configuration.
@@ -441,9 +441,9 @@ data: {"type": "citation", "url": "https://example.com", "title": "Source title"
 data: {"type": "done"}
 ```
 
-### 14.2 GET /api/history/{session_id}
+### 14.2 GET /api/history
 
-Returns past queries and report summaries for a session.
+Returns past queries and report summaries for the current signed-cookie session. The session ID is never accepted from the client; it is derived from the `financial_session` HMAC-signed cookie.
 
 ### 14.3 GET /api/report/{report_id}
 
@@ -455,15 +455,33 @@ Returns backend, LLM, market data, search, and memory health status.
 
 ## 15. Frontend Design
 
+### 15.1 Shipped MVP (current)
+
 Framework:
 
-- Next.js 15
+- Next.js 16 (App Router)
+- React 19
 - TypeScript
-- Tailwind CSS
-- shadcn/ui
-- Recharts
+- Plain CSS (no Tailwind/shadcn yet)
 
-Recommended structure:
+Current structure:
+
+```text
+frontend/
+  app/
+    layout.tsx
+    page.tsx
+  components/
+    financial-agent-app.tsx   # single-page query + streamed report + statements explorer
+  lib/
+    api.ts                    # SSE client, typed stream events, http(s) citation filter
+```
+
+The MVP is one streaming page: query input, live section/delta rendering, citation list (http/https only), and an expandable Financial Statements explorer (Income Statement / Balance Sheet / Cash Flow tabs with quarterly/annual history). Requests use `credentials: "include"` for the signed-cookie session.
+
+### 15.2 Target structure (not yet built)
+
+The following modular layout and component split are a future refactor target, not the current implementation:
 
 ```text
 frontend/
@@ -490,7 +508,11 @@ frontend/
     api.ts
 ```
 
+Tailwind CSS, shadcn/ui, and Recharts charts are deferred to this phase.
+
 ## 16. UI Screens
+
+> Status: design target. The shipped MVP (see 15.1) implements the home query input, streaming report view, citations, and the Financial Statements explorer on a single page. Separate Report and History screens and the loading/skeleton states below are not yet built.
 
 ### 16.1 Home Screen
 

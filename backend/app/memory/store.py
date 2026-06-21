@@ -11,20 +11,25 @@ from uuid import uuid4
 
 from app.core.config import settings
 from app.schemas.report import Citation, ReportRecord
+from app.services.embedding_service import (
+    GEMINI_EMBEDDING_DIMENSIONS,
+    embedding_service,
+)
 
 
 EMBEDDING_DIMENSIONS = 64
 
 
-def embed_text(text: str) -> list[float]:
-    vector = [0.0] * EMBEDDING_DIMENSIONS
+def hash_embed(text: str, dimensions: int = EMBEDDING_DIMENSIONS) -> list[float]:
+    """Deterministic local embedding used when no provider is configured."""
+    vector = [0.0] * dimensions
     tokens = re.findall(r"[a-z0-9]+", text.lower())
     if not tokens:
         return vector
 
     for token in tokens:
         digest = blake2b(token.encode("utf-8"), digest_size=8).digest()
-        index = int.from_bytes(digest[:4], "big") % EMBEDDING_DIMENSIONS
+        index = int.from_bytes(digest[:4], "big") % dimensions
         sign = 1.0 if digest[4] % 2 == 0 else -1.0
         vector[index] += sign
 
@@ -32,6 +37,11 @@ def embed_text(text: str) -> list[float]:
     if magnitude == 0:
         return vector
     return [value / magnitude for value in vector]
+
+
+# Backwards-compatible alias.
+def embed_text(text: str) -> list[float]:
+    return hash_embed(text)
 
 
 class PersistentReportStore:
@@ -49,6 +59,13 @@ class PersistentReportStore:
         self._lock = threading.RLock()
         self.chroma_available = False
         self._collection = None
+        # When a provider key is configured, store provider-sized vectors so the
+        # whole collection stays a single, consistent dimension.
+        self.embedding_dimensions = (
+            GEMINI_EMBEDDING_DIMENSIONS
+            if embedding_service.enabled
+            else EMBEDDING_DIMENSIONS
+        )
         if enable_chroma:
             self._initialize_chroma()
             self._backfill_chroma_from_history()
@@ -121,6 +138,18 @@ class PersistentReportStore:
                 )
             return related[:limit]
 
+    def _embed(self, text: str) -> list[float]:
+        """Use the provider embedding when available, else the local fallback.
+
+        Always returns a vector matching ``self.embedding_dimensions`` so the
+        Chroma collection never mixes dimensions.
+        """
+        if embedding_service.enabled:
+            vector = embedding_service.embed(text)
+            if vector is not None and len(vector) == self.embedding_dimensions:
+                return vector
+        return hash_embed(text, self.embedding_dimensions)
+
     def _initialize_chroma(self) -> None:
         try:
             import chromadb
@@ -128,8 +157,27 @@ class PersistentReportStore:
             client = chromadb.PersistentClient(path=str(self.storage_path))
             self._collection = client.get_or_create_collection(
                 name=self.collection_name,
-                metadata={"hnsw:space": "cosine"},
+                metadata={
+                    "hnsw:space": "cosine",
+                    "embedding_dimensions": self.embedding_dimensions,
+                },
             )
+            # A persisted collection built with a different embedding dimension
+            # (for example before a provider key was configured) is incompatible.
+            # Drop and recreate it; JSON history is the source of truth and is
+            # re-indexed by the startup backfill.
+            stored_dimensions = (self._collection.metadata or {}).get(
+                "embedding_dimensions"
+            )
+            if stored_dimensions != self.embedding_dimensions:
+                client.delete_collection(self.collection_name)
+                self._collection = client.get_or_create_collection(
+                    name=self.collection_name,
+                    metadata={
+                        "hnsw:space": "cosine",
+                        "embedding_dimensions": self.embedding_dimensions,
+                    },
+                )
             self.chroma_available = True
         # Chroma's Rust layer can raise pyo3 panics that do not inherit Exception.
         except BaseException:
@@ -177,7 +225,7 @@ class PersistentReportStore:
                 ids=[record.report_id],
                 documents=[document],
                 metadatas=[self._metadata(record)],
-                embeddings=[embed_text(document)],
+                embeddings=[self._embed(document)],
             )
         # Keep JSON history usable if Chroma rejects a record or store version.
         except BaseException:
@@ -205,7 +253,7 @@ class PersistentReportStore:
             return []
         try:
             results = self._collection.query(
-                query_embeddings=[embed_text(query)],
+                query_embeddings=[self._embed(query)],
                 n_results=max(limit + len(exclude_report_ids), limit),
                 where={"session_id": session_id},
                 include=["documents", "metadatas", "distances"],
